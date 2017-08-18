@@ -18,6 +18,8 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.apache.commons.codec.binary.Base64;
+
 public class Encryption {
 
 	/**
@@ -36,16 +38,27 @@ public class Encryption {
 		Scanner scanner = new Scanner(System.in);
 		System.out.println("Enter Input Text:");
 		String input = scanner.nextLine();
-		System.out.println("Enter 128 bit key:");//128bit means 16byte key ie.e length of key shud be 16
+		System.out.println("Enter 128 bit key:");// 128bit means 16byte key ie.e
+													// length of key shud be 16
 		String key = scanner.next();
-
+		// Encrytion ECB
 		String encryptedData1 = encrptyNonIV(input, key);
-		System.out.println("EBC output:" + encryptedData1);
+		System.out.println("\nECB Encrypted output:" + encryptedData1);
+		// Decryption ECB
+		String decryptedEbc = decryptNonIV(encryptedData1);
+		System.out.println("ECB Decrypted output:" + decryptedEbc + "\n");
 
+		// Encrytion CBC
 		String encryptedData2 = encrptyIV(input, key);
-		System.out.println("CBC with IV output:" + encryptedData2);
+		System.out.println("\nCBC with IV output:" + encryptedData2);
+		// Decryption CBC
+		String decryptedCbc = decryptIV(encryptedData2);
+		System.out.println("CBC Decrypted output:" + decryptedEbc + "\n");
 
 	}
+
+	static SecretKey secretKeyCBC;
+	static IvParameterSpec ivParameterSpec;
 
 	/**
 	 * Here we are using CBC encryption algo which means it need an IV parameter
@@ -70,19 +83,31 @@ public class Encryption {
 		byte[] iv = new byte[16];
 		SecureRandom random = new SecureRandom();
 		random.nextBytes(iv);
-		IvParameterSpec ivParameterSpec = new IvParameterSpec(iv);
+		ivParameterSpec = new IvParameterSpec(iv);
 
-		SecretKeySpec keySpec = new SecretKeySpec(key.getBytes(), "AES");
+		secretKeyCBC = new SecretKeySpec(key.getBytes(), "AES");
 
 		Cipher cipher = Cipher.getInstance(CBC);
 
-		cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivParameterSpec);
+		cipher.init(Cipher.ENCRYPT_MODE, secretKeyCBC, ivParameterSpec);
 
 		byte[] outputByte = cipher.doFinal(input.getBytes("UTF-8"));
-		String output = outputByte.toString();
+		String output = Base64.encodeBase64String(outputByte);
 
 		return output;
 	}
+
+	private static String decryptIV(String encryptedData2)
+			throws InvalidKeyException, InvalidAlgorithmParameterException, NoSuchAlgorithmException,
+			NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, UnsupportedEncodingException {
+
+		Cipher cipher = Cipher.getInstance(CBC);
+		cipher.init(Cipher.DECRYPT_MODE, secretKeyCBC, ivParameterSpec);
+		byte[] decrypedData = cipher.doFinal(Base64.decodeBase64(encryptedData2.getBytes("UTF-8")));
+		return new String(decrypedData,"UTF-8");
+	}
+
+	static SecretKey secretKeyECB;
 
 	/**
 	 * Here we are using EBC encryption algo which means only key is required
@@ -102,29 +127,47 @@ public class Encryption {
 			throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException,
 			BadPaddingException, UnsupportedEncodingException {
 
-		// method 1 to get key
-		SecretKey keySpec = new SecretKeySpec(key.getBytes(), "AES");
-		// OR
-		// method 2 to get key . This key will be random and not specified by
+		// method 1 to get key . This key will be random and not specified by
 		// user
 		KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
 		keyGenerator.init(128);
-		SecretKey secretKey = keyGenerator.generateKey();
+		secretKeyECB = keyGenerator.generateKey();
 
-		// method 3 to get key. here we r usng sha1 hash output of input key as
+		// method 2 to get key. here we r usng sha1 hash output of input key as
 		// final key
 		getKey(key);
 
 		Cipher cipher = Cipher.getInstance(ECB);
 
-		cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+		cipher.init(Cipher.ENCRYPT_MODE, secretKeyECB);
 
 		byte[] outputByte = cipher.doFinal(input.getBytes("UTF-8"));
 
-		String output = outputByte.toString();
+		String output = Base64.encodeBase64String(outputByte);
 
 		return output;
 
+	}
+
+	/**
+	 * Decryption. Uses same key as in encrptyNonIV()
+	 * 
+	 * @param encryptedData1
+	 * @return
+	 * @throws NoSuchAlgorithmException
+	 * @throws NoSuchPaddingException
+	 * @throws InvalidKeyException
+	 * @throws UnsupportedEncodingException
+	 * @throws BadPaddingException
+	 * @throws IllegalBlockSizeException
+	 */
+	private static String decryptNonIV(String encryptedData1) throws NoSuchAlgorithmException, NoSuchPaddingException,
+			InvalidKeyException, IllegalBlockSizeException, BadPaddingException, UnsupportedEncodingException {
+		Cipher cipher = Cipher.getInstance(ECB);
+		cipher.init(Cipher.DECRYPT_MODE, secretKeyECB);
+		byte[] decryptedData = cipher.doFinal(Base64.decodeBase64(encryptedData1.getBytes("UTF-8")));
+
+		return new String(decryptedData, "UTF-8");
 	}
 
 	/**
